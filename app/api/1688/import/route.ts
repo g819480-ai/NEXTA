@@ -2,21 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { url } = await request.json();
-
-    if (!url) {
-      return NextResponse.json(
-        { error: "1688 product URL is required" },
-        { status: 400 }
-      );
-    }
+    const { url, offer_id } = await request.json();
 
     const apiKey = process.env.APISH_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: "APISH_KEY is not configured in Vercel" },
+        { error: "APISH_KEY is missing from Vercel" },
         { status: 500 }
+      );
+    }
+
+    if (!url && !offer_id) {
+      return NextResponse.json(
+        { error: "1688 URL or offer_id is required" },
+        { status: 400 }
       );
     }
 
@@ -24,12 +24,17 @@ export async function POST(request: NextRequest) {
       "https://api.api.sh/1688/v1/product"
     );
 
-    apiUrl.searchParams.set("url", url);
+    if (offer_id) {
+      apiUrl.searchParams.set("offer_id", offer_id);
+    } else {
+      apiUrl.searchParams.set("url", url);
+    }
 
     const response = await fetch(apiUrl.toString(), {
       method: "GET",
       headers: {
         "x-api-key": apiKey,
+        "Accept": "application/json",
       },
       cache: "no-store",
     });
@@ -39,20 +44,28 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       return NextResponse.json(
         {
-          error: "1688 API request failed",
-          details: data,
+          success: false,
+          status: response.status,
+          api_error: data,
         },
         { status: response.status }
       );
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json({
+      success: true,
+      product: data,
+    });
   } catch (error) {
     console.error("1688 import error:", error);
 
     return NextResponse.json(
       {
-        error: "Failed to import 1688 product",
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown 1688 import error",
       },
       { status: 500 }
     );
