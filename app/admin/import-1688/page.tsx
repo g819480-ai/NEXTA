@@ -1,81 +1,100 @@
-"use client";
+“use client”;
 
-import { useState } from "react";
+import { useState } from “react”;
 
 export default function Import1688Page() {
-  const [url, setUrl] = useState("");
-  const [result, setResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+const [loading, setLoading] = useState(false);
+const [result, setResult] = useState(null);
 
-  async function importProduct() {
-    setLoading(true);
-    setError("");
-    setResult(null);
+async function runSync() {
+setLoading(true);
+setResult(null);
 
-    try {
-      const response = await fetch("/api/1688/import", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ url }),
-      });
+try {
+  const response = await fetch("/api/1688/sync", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  const data = await response.json();
+  setResult({
+    status: response.status,
+    ...data,
+  });
+} catch (error) {
+  setResult({
+    success: false,
+    error:
+      error instanceof Error
+        ? error.message
+        : "Unable to connect to sync API",
+  });
+} finally {
+  setLoading(false);
+}
 
-      const data = await response.json();
+}
 
-      if (!response.ok) {
-        throw new Error(data.error || "Import failed");
-      }
+return (
+<main
+style={{
+minHeight: “100vh”,
+padding: “40px 20px”,
+background: “#0b0b0b”,
+color: “#fff”,
+}}
+>
+<div
+style={{
+maxWidth: “900px”,
+margin: “0 auto”,
+}}
+>
+<h1 style={{ fontSize: “32px”, marginBottom: “10px” }}>
+NESTA 1688 Sync
+    <p
+      style={{
+        color: "#aaa",
+        marginBottom: "30px",
+      }}
+    >
+      Automatically search 1688 and import products into NESTA.
+    </p>
+    <button
+      onClick={runSync}
+      disabled={loading}
+      style={{
+        padding: "14px 24px",
+        border: "none",
+        borderRadius: "8px",
+        background: loading ? "#555" : "#e11d48",
+        color: "#fff",
+        fontSize: "16px",
+        fontWeight: 600,
+        cursor: loading ? "not-allowed" : "pointer",
+      }}
+    >
+      {loading ? "Syncing 1688..." : "Start 1688 Sync"}
+    </button>
+    {result && (
+      <pre
+        style={{
+          marginTop: "30px",
+          padding: "20px",
+          background: "#151515",
+          borderRadius: "10px",
+          overflowX: "auto",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          color: "#ddd",
+        }}
+      >
+        {JSON.stringify(result, null, 2)}
+      </pre>
+    )}
+  </div>
+</main>
 
-      setResult(data);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <main className="min-h-screen bg-black px-6 py-12 text-white">
-      <div className="mx-auto max-w-2xl">
-        <h1 className="text-3xl font-bold">
-          Import Product from 1688
-        </h1>
-
-        <p className="mt-2 text-gray-400">
-          Paste a 1688 product link and import its product information.
-        </p>
-
-        <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="Paste 1688 product URL"
-            className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none"
-          />
-
-          <button
-            onClick={importProduct}
-            disabled={loading || !url}
-            className="mt-4 w-full rounded-xl bg-red-600 px-5 py-3 font-semibold hover:bg-red-700 disabled:opacity-50"
-          >
-            {loading ? "Importing..." : "Import Product"}
-          </button>
-
-          {error && (
-            <div className="mt-4 rounded-xl bg-red-500/10 p-4 text-red-400">
-              {error}
-            </div>
-          )}
-
-          {result && (
-            <pre className="mt-6 max-h-[500px] overflow-auto rounded-xl bg-black p-4 text-xs text-green-400">
-              {JSON.stringify(result, null, 2)}
-            </pre>
-          )}
-        </div>
-      </div>
-    </main>
-  );
+);
 }
