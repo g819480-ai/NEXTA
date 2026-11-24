@@ -15,34 +15,45 @@ export async function POST(request: NextRequest) {
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: "APISH_KEY is not configured" },
+        { error: "APISH_KEY is not configured in Vercel" },
         { status: 500 }
       );
     }
 
-    const response = await fetch(
-      `https://api.api.sh/1688/v1/product?url=${encodeURIComponent(url)}`,
-      {
-        headers: {
-          "x-api-key": apiKey,
-        },
-        cache: "no-store",
-      }
+    const apiUrl = new URL(
+      "https://api.api.sh/1688/v1/product"
     );
+
+    apiUrl.searchParams.set("url", url);
+
+    const response = await fetch(apiUrl.toString(), {
+      method: "GET",
+      headers: {
+        "x-api-key": apiKey,
+      },
+      cache: "no-store",
+    });
 
     const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: "1688 API request failed", details: data },
+        {
+          error: "1688 API request failed",
+          details: data,
+        },
         { status: response.status }
       );
     }
 
     return NextResponse.json(data);
   } catch (error) {
+    console.error("1688 import error:", error);
+
     return NextResponse.json(
-      { error: "Failed to import 1688 product" },
+      {
+        error: "Failed to import 1688 product",
+      },
       { status: 500 }
     );
   }
