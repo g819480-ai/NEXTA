@@ -19,27 +19,32 @@ try {
     "HTTP " + response.status + "\n\n" + text
   );
 } catch (error) {
-  setResult(
-    error instanceof Error
-      ? error.message
-      : "Request failed"
-  );
+  if (error instanceof Error) {
+    setResult(error.message);
+  } else {
+    setResult("Request failed");
+  }
+} finally {
+  setLoading(false);
 }
-setLoading(false);
 
 }
 
 return (
 NESTA 1688 Sync
 
+  <p>
+    Search 1688 and import products into NESTA.
+  </p>
   <button
+    type="button"
     onClick={runSync}
     disabled={loading}
   >
     {loading ? "Syncing..." : "Start 1688 Sync"}
   </button>
   <pre>{result}</pre>
-</div>
+</main>
 
 );
 }
