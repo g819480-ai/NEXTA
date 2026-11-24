@@ -1,13 +1,16 @@
+
 "use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import ProductCard from "../../components/ProductCard";
-import { categories, products } from "../../lib/store";
+import { categories } from "../../lib/store";
+import { useProducts } from "../../lib/useProducts";
 
 export default function ShopPage() {
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const { products, loading, error } = useProducts();
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -20,7 +23,7 @@ export default function ShopPage() {
 
       return matchesCategory && matchesSearch;
     });
-  }, [category, search]);
+  }, [products, category, search]);
 
   return (
     <div className="page">
@@ -49,7 +52,6 @@ export default function ShopPage() {
           onChange={(e) => setCategory(e.target.value)}
         >
           <option value="All">All Categories</option>
-
           {categories.map((item) => (
             <option value={item} key={item}>
               {item}
@@ -77,7 +79,17 @@ export default function ShopPage() {
         ))}
       </div>
 
-      {filteredProducts.length > 0 ? (
+      {loading ? (
+        <div className="empty-state">
+          <h2>Loading products...</h2>
+          <p>Please wait while NESTA loads the store.</p>
+        </div>
+      ) : error ? (
+        <div className="empty-state">
+          <h2>Unable to load products</h2>
+          <p>{error}</p>
+        </div>
+      ) : filteredProducts.length > 0 ? (
         <div className="product-grid">
           {filteredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
