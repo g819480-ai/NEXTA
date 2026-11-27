@@ -475,7 +475,10 @@ async function importProducts(
 
 const englishTitle =
   await translateProductNameToEnglish(originalTitle);
-
+console.log("[TITLE CHECK]", {
+  original: originalTitle,
+  translated: englishTitle,
+});
         const priceGhs =
           Number(
             (
