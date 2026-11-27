@@ -16,151 +16,32 @@ function normalizeCategory(value: string): string {
     .trim();
 
   const rules: Record<string, string[]> = {
-    "Mobile Phone": [
-      "mobile phone",
-      "mobile phones",
-      "smartphone",
-      "smartphones",
-      "iphone",
-      "android phone",
-      "cell phone",
-      "cellphone",
-    ],
-
-    "Air Freshener": [
-      "air freshener",
-      "air fresheners",
-      "room fragrance",
-      "scent diffuser",
-      "air diffuser",
-    ],
-
-    "Rice Cooker": [
-      "rice cooker",
-      "rice cookers",
-    ],
-
-    "Fridge": [
-      "fridge",
-      "fridges",
-      "refrigerator",
-      "refrigerators",
-      "freezer",
-      "freezers",
-    ],
-
-    "TV": [
-      "tv",
-      "television",
-      "televisions",
-      "smart tv",
-      "led tv",
-      "lcd tv",
-    ],
-
-    "Shoes": [
-      "shoe",
-      "shoes",
-      "sneaker",
-      "sneakers",
-      "sandals",
-      "boots",
-      "footwear",
-    ],
-
-    "Clothing": [
-      "clothing",
-      "fashion",
-      "dress",
-      "dresses",
-      "shirt",
-      "shirts",
-      "trousers",
-      "jacket",
-      "jackets",
-      "apparel",
-    ],
-
-    "Bags": [
-      "bag",
-      "bags",
-      "handbag",
-      "handbags",
-      "backpack",
-      "backpacks",
-    ],
-
-    "Watches": [
-      "watch",
-      "watches",
-      "smart watch",
-      "smart watches",
-    ],
-
-    "Jewelry": [
-      "jewelry",
-      "jewellery",
-      "necklace",
-      "bracelet",
-      "earrings",
-      "rings",
-    ],
-
-    "Beauty": [
-      "beauty",
-      "cosmetics",
-      "makeup",
-      "skincare",
-      "skin care",
-    ],
-
-    "Electronics": [
-      "electronics",
-      "headphones",
-      "earphones",
-      "earbuds",
-      "chargers",
-      "bluetooth speaker",
-      "speakers",
-    ],
-
-    "Accessories": [
-      "accessories",
-      "caps",
-      "wallets",
-      "sunglasses",
-      "belts",
-    ],
-
-    "Home": [
-      "home",
-      "home and living",
-      "home living",
-      "household",
-      "home decor",
-      "kitchen products",
-      "home storage",
-    ],
-
-    "Kids": [
-      "kids",
-      "children",
-      "baby",
-      "babies",
-    ],
-
-    "Sports": [
-      "sports",
-      "sportswear",
-      "fitness",
-      "gym",
-    ],
+    "Mobile Phone": ["mobile phone", "smartphone", "iphone", "android phone", "cell phone", "cellphone"],
+    "Air Freshener": ["air freshener", "room fragrance", "scent diffuser", "air diffuser"],
+    "Rice Cooker": ["rice cooker"],
+    "Fridge": ["fridge", "refrigerator", "freezer"],
+    "TV": ["television", "smart tv", "led tv", "lcd tv"],
+    "Shoes": ["shoe", "sneaker", "sandals", "boots", "footwear"],
+    "Clothing": ["clothing", "fashion", "dress", "shirt", "trousers", "jacket", "apparel"],
+    "Bags": ["bag", "handbag", "backpack"],
+    "Watches": ["watch"],
+    "Jewelry": ["jewelry", "jewellery", "necklace", "bracelet", "earrings", "rings"],
+    "Beauty": ["beauty", "cosmetics", "makeup", "skincare", "skin care"],
+    "Electronics": ["electronics", "headphones", "earphones", "earbuds", "chargers", "bluetooth speaker", "speakers"],
+    "Accessories": ["accessories", "caps", "wallets", "sunglasses", "belts"],
+    "Home": ["home", "household", "home decor", "kitchen products", "home storage"],
+    "Kids": ["kids", "children", "baby", "babies"],
+    "Sports": ["sports", "sportswear", "fitness", "gym"],
   };
 
   for (const [category, keywords] of Object.entries(rules)) {
     if (
-      keywords.some((keyword) =>
-        text.includes(keyword)
+      keywords.some(
+        (keyword) =>
+          text === keyword ||
+          text.startsWith(keyword + " ") ||
+          text.endsWith(" " + keyword) ||
+          text.includes(" " + keyword + " ")
       )
     ) {
       return category;
@@ -176,36 +57,24 @@ export default function ShopPage() {
   const [searching, setSearching] = useState(false);
   const [searchMessage, setSearchMessage] = useState("");
 
-  const {
-    products,
-    loading,
-    error,
-    reload,
-  } = useProducts();
+  const { products, loading, error, reload } = useProducts();
 
   const filteredProducts = useMemo(() => {
+    const searchText = search.toLowerCase().trim();
+
     return products.filter((product) => {
       const productCategory = normalizeCategory(
         product.category || ""
       );
 
-      const selectedCategory = normalizeCategory(
-        category
-      );
+      const selectedCategory = normalizeCategory(category);
 
       const matchesCategory =
         category === "All" ||
         productCategory === selectedCategory;
 
-      const productName = String(
-        product.name || ""
-      ).toLowerCase();
-
-      const productCategoryText = String(
-        product.category || ""
-      ).toLowerCase();
-
-      const searchText = search.toLowerCase().trim();
+      const productName = String(product.name || "").toLowerCase();
+      const productCategoryText = String(product.category || "").toLowerCase();
 
       const matchesSearch =
         !searchText ||
@@ -226,9 +95,7 @@ export default function ShopPage() {
     if (!query || searching) return;
 
     setSearching(true);
-    setSearchMessage(
-      `Searching 1688 for "${query}"...`
-    );
+    setSearchMessage(`Searching 1688 for "${query}"...`);
 
     try {
       const response = await fetch(
@@ -238,14 +105,13 @@ export default function ShopPage() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.error || "1688 search failed"
-        );
+        throw new Error(data.error || "1688 search failed");
       }
 
       await reload();
 
       setCategory("All");
+      setSearch("");
 
       setSearchMessage(
         `1688 search completed. ${
@@ -267,12 +133,8 @@ export default function ShopPage() {
     <div className="page">
       <section className="shop-header">
         <div>
-          <span className="eyebrow">
-            NESTA STORE
-          </span>
-
+          <span className="eyebrow">NESTA STORE</span>
           <h1>Shop Everything</h1>
-
           <p>Find something made for you.</p>
         </div>
 
@@ -281,17 +143,12 @@ export default function ShopPage() {
         </Link>
       </section>
 
-      <form
-        className="shop-controls"
-        onSubmit={search1688}
-      >
+      <form className="shop-controls" onSubmit={search1688}>
         <input
           type="search"
           placeholder="Search anything on 1688..."
           value={search}
-          onChange={(e) =>
-            setSearch(e.target.value)
-          }
+          onChange={(e) => setSearch(e.target.value)}
         />
 
         <button
@@ -303,13 +160,9 @@ export default function ShopPage() {
 
         <select
           value={category}
-          onChange={(e) =>
-            setCategory(e.target.value)
-          }
+          onChange={(e) => setCategory(e.target.value)}
         >
-          <option value="All">
-            All Categories
-          </option>
+          <option value="All">All Categories</option>
 
           {categories.map((item) => (
             <option value={item} key={item}>
@@ -320,16 +173,13 @@ export default function ShopPage() {
       </form>
 
       {searchMessage && (
-        <p className="search-message">
-          {searchMessage}
-        </p>
+        <p className="search-message">{searchMessage}</p>
       )}
 
       <div className="category-pills">
         <button
-          className={
-            category === "All" ? "active" : ""
-          }
+          type="button"
+          className={category === "All" ? "active" : ""}
           onClick={() => setCategory("All")}
         >
           All
@@ -337,10 +187,9 @@ export default function ShopPage() {
 
         {categories.map((item) => (
           <button
+            type="button"
             key={item}
-            className={
-              category === item ? "active" : ""
-            }
+            className={category === item ? "active" : ""}
             onClick={() => setCategory(item)}
           >
             {item}
@@ -351,9 +200,7 @@ export default function ShopPage() {
       {loading ? (
         <div className="empty-state">
           <h2>Loading products...</h2>
-          <p>
-            Please wait while NESTA loads the store.
-          </p>
+          <p>Please wait while NESTA loads the store.</p>
         </div>
       ) : error ? (
         <div className="empty-state">
@@ -363,18 +210,13 @@ export default function ShopPage() {
       ) : filteredProducts.length > 0 ? (
         <div className="product-grid">
           {filteredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-            />
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       ) : (
         <div className="empty-state">
           <h2>No products found</h2>
-          <p>
-            Try another search or category.
-          </p>
+          <p>Try another search or category.</p>
         </div>
       )}
     </div>
