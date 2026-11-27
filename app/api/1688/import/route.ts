@@ -4,13 +4,89 @@ import { createClient } from "@supabase/supabase-js";
 const APISH_URL = "https://api.api.sh/1688/v1/search";
 const IMAGE_BUCKET = "product-images";
 
+const CATEGORY_SEARCHES: Record<string, string[]> = {
+  shoes: [
+    "shoes",
+    "sneakers",
+    "sandals",
+    "boots",
+  ],
+
+  clothing: [
+    "women clothing",
+    "dresses",
+    "shirts",
+    "trousers",
+    "jackets",
+  ],
+
+  bags: [
+    "handbags",
+    "shoulder bags",
+    "backpacks",
+    "wallets",
+  ],
+
+  watches: [
+    "watches",
+    "smart watches",
+    "men watches",
+    "women watches",
+  ],
+
+  jewelry: [
+    "jewelry",
+    "necklaces",
+    "bracelets",
+    "earrings",
+    "rings",
+  ],
+
+  beauty: [
+    "cosmetics",
+    "makeup",
+    "skincare",
+    "beauty products",
+  ],
+
+  electronics: [
+    "electronics",
+    "headphones",
+    "earphones",
+    "chargers",
+    "phone accessories",
+  ],
+
+  home: [
+    "home decor",
+    "kitchen products",
+    "home storage",
+    "household products",
+  ],
+
+  kids: [
+    "kids clothing",
+    "kids shoes",
+    "kids toys",
+    "baby products",
+  ],
+
+  sports: [
+    "sportswear",
+    "fitness products",
+    "sports accessories",
+    "gym products",
+  ],
+};
+
 function fixMojibake(value: string): string {
   if (!/[ÃÂåæçèéêëìíîïðñòóôõöùúûüý]/.test(value)) {
     return value;
   }
 
   try {
-    const fixed = Buffer.from(value, "latin1").toString("utf8");
+    const fixed =
+      Buffer.from(value, "latin1").toString("utf8");
 
     if (fixed.includes("�")) {
       return value;
@@ -62,44 +138,61 @@ async function saveImageToSupabase(
       console.error(
         `[1688 IMAGE] Failed ${response.status}: ${imageUrl}`
       );
+
       return null;
     }
 
     const contentType =
-      response.headers.get("content-type") || "image/jpeg";
+      response.headers.get("content-type") ||
+      "image/jpeg";
 
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const arrayBuffer =
+      await response.arrayBuffer();
+
+    const buffer =
+      Buffer.from(arrayBuffer);
 
     let extension = "jpg";
 
     if (contentType.includes("png")) {
       extension = "png";
-    } else if (contentType.includes("webp")) {
+    } else if (
+      contentType.includes("webp")
+    ) {
       extension = "webp";
-    } else if (contentType.includes("gif")) {
+    } else if (
+      contentType.includes("gif")
+    ) {
       extension = "gif";
     }
 
-    const filePath = `1688/${offerId}.${extension}`;
+    const filePath =
+      `1688/${offerId}.${extension}`;
 
-    const { error } = await supabase.storage
-      .from(IMAGE_BUCKET)
-      .upload(filePath, buffer, {
-        contentType,
-        upsert: true,
-      });
+    const { error } =
+      await supabase.storage
+        .from(IMAGE_BUCKET)
+        .upload(
+          filePath,
+          buffer,
+          {
+            contentType,
+            upsert: true,
+          }
+        );
 
     if (error) {
       console.error(
         `[SUPABASE IMAGE] ${offerId}: ${error.message}`
       );
+
       return null;
     }
 
-    const { data } = supabase.storage
-      .from(IMAGE_BUCKET)
-      .getPublicUrl(filePath);
+    const { data } =
+      supabase.storage
+        .from(IMAGE_BUCKET)
+        .getPublicUrl(filePath);
 
     return data.publicUrl;
   } catch (error: any) {
@@ -116,45 +209,77 @@ async function processWithConcurrency<T>(
   worker: (item: T) => Promise<T>,
   concurrency = 5
 ): Promise<T[]> {
-  const results = new Array<T>(items.length);
+  const results =
+    new Array<T>(items.length);
+
   let nextIndex = 0;
 
   async function runner() {
     while (true) {
-      const index = nextIndex++;
+      const index =
+        nextIndex++;
 
       if (index >= items.length) {
         return;
       }
 
-      results[index] = await worker(items[index]);
+      results[index] =
+        await worker(items[index]);
     }
   }
 
-  const workers = Array.from(
-    { length: Math.min(concurrency, items.length) },
-    () => runner()
-  );
+  const workers =
+    Array.from(
+      {
+        length: Math.min(
+          concurrency,
+          items.length
+        ),
+      },
+      () => runner()
+    );
 
   await Promise.all(workers);
 
   return results;
 }
 
+function getCategorySearches(
+  category: string
+): string[] {
+  const normalized =
+    category.toLowerCase().trim();
+
+  return (
+    CATEGORY_SEARCHES[normalized] || [
+      normalized,
+    ]
+  );
+}
+
 async function importProducts(
   query: string,
-  page: number
+  page: number,
+  category: string = query
 ) {
-  const apiKey = process.env.APISH_KEY;
+  const apiKey =
+    process.env.APISH_KEY;
+
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL;
+
   const serviceRoleKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY;
+
   const exchangeRate =
-    Number(process.env.CNY_TO_GHS_RATE);
+    Number(
+      process.env.CNY_TO_GHS_RATE
+    );
 
   if (!apiKey) {
-    throw new Error("APISH_KEY is missing");
+    throw new Error(
+      "APISH_KEY is missing"
+    );
   }
 
   if (!supabaseUrl) {
@@ -169,39 +294,56 @@ async function importProducts(
     );
   }
 
-  if (!exchangeRate || exchangeRate <= 0) {
+  if (
+    !exchangeRate ||
+    exchangeRate <= 0
+  ) {
     throw new Error(
       "CNY_TO_GHS_RATE is missing or invalid"
     );
   }
 
-  const supabase = createClient(
-    supabaseUrl,
-    serviceRoleKey
-  );
+  const supabase =
+    createClient(
+      supabaseUrl,
+      serviceRoleKey
+    );
 
   const url =
-    `${APISH_URL}?q=${encodeURIComponent(query)}&page=${page}`;
+    `${APISH_URL}?q=${encodeURIComponent(
+      query
+    )}&page=${page}`;
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      "x-api-key": apiKey.trim(),
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
+  const response =
+    await fetch(url, {
+      method: "GET",
+      headers: {
+        "x-api-key":
+          apiKey.trim(),
 
-  const data = await response.json();
+        Accept:
+          "application/json",
+      },
+      cache: "no-store",
+    });
 
-  if (!response.ok || data.success === false) {
+  const data =
+    await response.json();
+
+  if (
+    !response.ok ||
+    data.success === false
+  ) {
     throw new Error(
       data.error ||
         `API.SH request failed: ${response.status}`
     );
   }
 
-  const items = cleanValue(data.items || []);
+  const items =
+    cleanValue(
+      data.items || []
+    );
 
   if (!items.length) {
     return {
@@ -209,97 +351,123 @@ async function importProducts(
       imported: 0,
       updated: 0,
       products_processed: 0,
-      next_page: data.next_page ?? null,
-      message: "No products returned from 1688",
+      next_page:
+        data.next_page ??
+        null,
+      message:
+        "No products returned from 1688",
+      category,
+      query,
     };
   }
 
-  const validItems = items.filter(
-    (item: any) => {
-      const priceCny = Number(item.price);
+  const validItems =
+    items.filter(
+      (item: any) => {
+        const priceCny =
+          Number(item.price);
 
-      return Boolean(
-        item.offer_id && priceCny
-      );
-    }
-  );
-
-  const products = await processWithConcurrency(
-    validItems,
-    async (item: any) => {
-      const priceCny = Number(item.price);
-
-      const priceGhs = Number(
-        (
-          priceCny *
-          exchangeRate *
-          1.25
-        ).toFixed(2)
-      );
-
-      const sourceImageUrl =
-        item.image ||
-        (
-          Array.isArray(item.images)
-            ? item.images[0]
-            : null
+        return Boolean(
+          item.offer_id &&
+          priceCny
         );
+      }
+    );
 
-      let imageUrl = sourceImageUrl;
+  const products =
+    await processWithConcurrency(
+      validItems,
+      async (item: any) => {
+        const priceCny =
+          Number(item.price);
 
-      if (sourceImageUrl) {
-        const storedImage =
-          await saveImageToSupabase(
-            supabase,
-            sourceImageUrl,
-            String(item.offer_id)
+        const priceGhs =
+          Number(
+            (
+              priceCny *
+              exchangeRate *
+              1.25
+            ).toFixed(2)
           );
 
-        if (storedImage) {
-          imageUrl = storedImage;
+        const sourceImageUrl =
+          item.image ||
+          (
+            Array.isArray(
+              item.images
+            )
+              ? item.images[0]
+              : null
+          );
+
+        let imageUrl =
+          sourceImageUrl;
+
+        if (
+          sourceImageUrl
+        ) {
+          const storedImage =
+            await saveImageToSupabase(
+              supabase,
+              sourceImageUrl,
+              String(
+                item.offer_id
+              )
+            );
+
+          if (storedImage) {
+            imageUrl =
+              storedImage;
+          }
         }
-      }
 
-      return {
-        name:
-          item.title ||
-          `1688 Product ${item.offer_id}`,
+        return {
+          name:
+            item.title ||
+            `1688 Product ${item.offer_id}`,
 
-        price: priceGhs,
+          price:
+            priceGhs,
 
-        category: query,
+          category,
 
-        description:
-          item.sales_text ||
-          `${item.title || "1688 product"} imported from 1688.`,
+          description:
+            item.sales_text ||
+            `${item.title || "1688 product"} imported from 1688.`,
 
-        badge:
-          item.sponsored
-            ? "Sponsored"
-            : "1688",
+          badge:
+            item.sponsored
+              ? "Sponsored"
+              : "1688",
 
-        image_url: imageUrl,
+          image_url:
+            imageUrl,
 
-        active: true,
+          active:
+            true,
 
-        source_offer_id:
-          String(item.offer_id),
+          source_offer_id:
+            String(
+              item.offer_id
+            ),
 
-        source_url:
-          item.url || null,
+          source_url:
+            item.url ||
+            null,
 
-        source_price_cny:
-          priceCny,
+          source_price_cny:
+            priceCny,
 
-        exchange_rate:
-          exchangeRate,
+          exchange_rate:
+            exchangeRate,
 
-        source_shop:
-          item.shop?.name || null,
-      };
-    },
-    5
-  );
+          source_shop:
+            item.shop?.name ||
+            null,
+        };
+      },
+      5
+    );
 
   if (!products.length) {
     return {
@@ -309,16 +477,21 @@ async function importProducts(
       products_processed: 0,
       message:
         "Products were returned but none were valid for import",
+      category,
+      query,
     };
   }
 
   const { error } =
     await supabase
       .from("products")
-      .upsert(products, {
-        onConflict:
-          "source_offer_id",
-      });
+      .upsert(
+        products,
+        {
+          onConflict:
+            "source_offer_id",
+        }
+      );
 
   if (error) {
     throw new Error(
@@ -328,18 +501,112 @@ async function importProducts(
 
   return {
     success: true,
-    imported: products.length,
-    updated: 0,
+    imported:
+      products.length,
+
+    updated:
+      0,
+
     products_processed:
       products.length,
+
     next_page:
-      data.next_page ?? null,
+      data.next_page ??
+      null,
+
     exchange_rate:
       exchangeRate,
-    markup: "25%",
+
+    markup:
+      "25%",
+
+    category,
+
     query,
+
     page,
-    images: "stored in Supabase Storage",
+
+    images:
+      "stored in Supabase Storage",
+  };
+}
+
+async function importAllCategories(
+  page: number
+) {
+  const results: any[] = [];
+
+  let totalImported = 0;
+
+  for (
+    const category of Object.keys(
+      CATEGORY_SEARCHES
+    )
+  ) {
+    const searches =
+      CATEGORY_SEARCHES[
+        category
+      ];
+
+    const query =
+      searches[
+        (page - 1) %
+          searches.length
+      ];
+
+    try {
+      const result =
+        await importProducts(
+          query,
+          page,
+          category
+        );
+
+      results.push(
+        result
+      );
+
+      totalImported +=
+        result.imported ||
+        0;
+    } catch (error: any) {
+      results.push({
+        success:
+          false,
+
+        category,
+
+        query,
+
+        error:
+          error?.message ||
+          "Category import failed",
+      });
+    }
+  }
+
+  return {
+    success: true,
+
+    mode:
+      "all-categories",
+
+    categories:
+      results,
+
+    total_imported:
+      totalImported,
+
+    category_count:
+      Object.keys(
+        CATEGORY_SEARCHES
+      ).length,
+
+    markup:
+      "25%",
+
+    images:
+      "stored in Supabase Storage",
   };
 }
 
@@ -348,22 +615,57 @@ export async function GET(
 ) {
   try {
     const { searchParams } =
-      new URL(request.url);
+      new URL(
+        request.url
+      );
+
+    const category =
+      (
+        searchParams.get(
+          "category"
+        ) || ""
+      )
+        .toLowerCase()
+        .trim();
 
     const query =
-      searchParams.get("q") ||
-      "shoes";
+      searchParams.get(
+        "q"
+      ) || "shoes";
 
     const page =
       Number(
-        searchParams.get("page") ||
-        "1"
+        searchParams.get(
+          "page"
+        ) || "1"
       );
+
+    if (
+      category === "all"
+    ) {
+      const result =
+        await importAllCategories(
+          page
+        );
+
+      return NextResponse.json(
+        result
+      );
+    }
+
+    const selectedCategory =
+      category &&
+      CATEGORY_SEARCHES[
+        category
+      ]
+        ? category
+        : query;
 
     const result =
       await importProducts(
         query,
-        page
+        page,
+        selectedCategory
       );
 
     return NextResponse.json(
@@ -377,12 +679,16 @@ export async function GET(
 
     return NextResponse.json(
       {
-        success: false,
+        success:
+          false,
+
         error:
           error?.message ||
           "Import failed",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
@@ -394,19 +700,50 @@ export async function POST(
     const body =
       await request.json();
 
+    const category =
+      String(
+        body.category ||
+          ""
+      )
+        .toLowerCase()
+        .trim();
+
     const query =
       body.query ||
       "shoes";
 
     const page =
       Number(
-        body.page || 1
+        body.page ||
+          1
       );
+
+    if (
+      category === "all"
+    ) {
+      const result =
+        await importAllCategories(
+          page
+        );
+
+      return NextResponse.json(
+        result
+      );
+    }
+
+    const selectedCategory =
+      category &&
+      CATEGORY_SEARCHES[
+        category
+      ]
+        ? category
+        : query;
 
     const result =
       await importProducts(
         query,
-        page
+        page,
+        selectedCategory
       );
 
     return NextResponse.json(
@@ -420,12 +757,16 @@ export async function POST(
 
     return NextResponse.json(
       {
-        success: false,
+        success:
+          false,
+
         error:
           error?.message ||
           "Import failed",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
