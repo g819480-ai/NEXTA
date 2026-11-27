@@ -433,6 +433,12 @@ async function importProducts(
       async (item: any) => {
         const priceCny =
           Number(item.price);
+        const originalTitle =
+  item.title ||
+  `1688 Product ${item.offer_id}`;
+
+const englishTitle =
+  await translateProductNameToEnglish(originalTitle);
 
         const priceGhs =
           Number(
