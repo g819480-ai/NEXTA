@@ -1047,8 +1047,19 @@ img {
   }
 
   .product-info h1 {
-    font-size: 44px;
-  }
+  font-size: 26px;
+  line-height: 1.25;
+  letter-spacing: -0.5px;
+}
+
+.product-price {
+  font-size: 21px;
+}
+
+.product-description {
+  font-size: 13px;
+  line-height: 1.6;
+}
 
   .product-placeholder.large {
     min-height: 420px;
