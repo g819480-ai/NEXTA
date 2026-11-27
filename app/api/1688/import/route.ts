@@ -119,6 +119,7 @@ function cleanValue(value: any): any {
   return value;
 }
 
+
 async function translateProductNameToEnglish(
   title: string
 ): Promise<string> {
@@ -128,6 +129,49 @@ async function translateProductNameToEnglish(
     return original;
   }
 
+  // Try Google's translation endpoint first
+  try {
+    const params = new URLSearchParams({
+      client: "dict-chrome-ex",
+      sl: "zh-CN",
+      tl: "en",
+      dt: "t",
+      q: original,
+    });
+
+    const response = await fetch(
+      `https://translate.googleapis.com/translate_a/single?${params}`,
+      {
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(15000),
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+
+      const translated = Array.isArray(data?.[0])
+        ? data[0]
+            .map((part: any) => part?.[0] || "")
+            .join("")
+            .trim()
+        : "";
+
+      if (
+        translated &&
+        !/[\u3400-\u9FFF]/.test(translated)
+      ) {
+        return translated;
+      }
+    }
+  } catch (error) {
+    console.error("[GOOGLE TRANSLATION ERROR]", error);
+  }
+
+  // MyMemory backup
   try {
     const params = new URLSearchParams({
       q: original,
@@ -137,29 +181,28 @@ async function translateProductNameToEnglish(
     const response = await fetch(
       `https://api.mymemory.translated.net/get?${params}`,
       {
-        method: "GET",
         cache: "no-store",
         signal: AbortSignal.timeout(15000),
       }
     );
 
-    if (!response.ok) return original;
-
     const data = await response.json();
-
     const translated = String(
       data.responseData?.translatedText || ""
     ).trim();
 
     if (
+      response.ok &&
       data.responseStatus === 200 &&
       translated &&
       !/[\u3400-\u9FFF]/.test(translated)
     ) {
       return translated;
     }
+
+    console.error("[MYMEMORY RESPONSE]", data.responseStatus);
   } catch (error) {
-    console.error("[TRANSLATION ERROR]", error);
+    console.error("[MYMEMORY TRANSLATION ERROR]", error);
   }
 
   return original;
