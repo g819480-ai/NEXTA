@@ -41,6 +41,68 @@ function cleanValue(value: any): any {
 
   return value;
 }
+async function saveImageToSupabase(
+  supabase: any,
+  imageUrl: string,
+  offerId: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(imageUrl, {
+      headers: {
+        Referer: "https://detail.1688.com/",
+        "User-Agent":
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1",
+      },
+    });
+
+    if (!response.ok) {
+      console.error(
+        `[1688 IMAGE] Failed ${response.status}: ${imageUrl}`
+      );
+      return null;
+    }
+
+    const contentType =
+      response.headers.get("content-type") || "image/jpeg";
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const extension =
+      contentType.includes("png")
+        ? "png"
+        : contentType.includes("webp")
+        ? "webp"
+        : "jpg";
+
+    const filePath = `1688/${offerId}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from("product-images")
+      .upload(filePath, buffer, {
+        contentType,
+        upsert: true,
+      });
+
+    if (error) {
+      console.error(
+        `[SUPABASE IMAGE] ${offerId}: ${error.message}`
+      );
+      return null;
+    }
+
+    const { data } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  } catch (error: any) {
+    console.error(
+      `[1688 IMAGE ERROR] ${offerId}: ${error?.message}`
+    );
+    return null;
+  }
+}
 
 async function importProducts(query: string, page: number) {
   const apiKey = process.env.APISH_KEY;
@@ -114,10 +176,23 @@ async function importProducts(query: string, page: number) {
         (priceCny * exchangeRate * 1.25).toFixed(2)
       );
 
-      const imageUrl =
-        item.image ||
-        (Array.isArray(item.images) ? item.images[0] : null);
+      const sourceImageUrl =
+  item.image ||
+  (Array.isArray(item.images) ? item.images[0] : null);
 
+let imageUrl = sourceImageUrl;
+
+if (sourceImageUrl) {
+  const storedImage = await saveImageToSupabase(
+    supabase,
+    sourceImageUrl,
+    String(item.offer_id)
+  );
+
+  if (storedImage) {
+    imageUrl = storedImage;
+  }
+}
       return {
         name: item.title || `1688 Product ${item.offer_id}`,
         price: priceGhs,
