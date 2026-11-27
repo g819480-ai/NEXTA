@@ -128,45 +128,38 @@ async function translateProductNameToEnglish(
     return original;
   }
 
-  const endpoints = [
-    "https://translate.argosopentech.com/translate",
-    "https://libretranslate.de/translate",
-  ];
+  try {
+    const params = new URLSearchParams({
+      q: original,
+      langpair: "zh-CN|en",
+    });
 
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          q: original,
-          source: "zh",
-          target: "en",
-          format: "text",
-        }),
+    const response = await fetch(
+      `https://api.mymemory.translated.net/get?${params}`,
+      {
+        method: "GET",
         cache: "no-store",
-        signal: AbortSignal.timeout(12000),
-      });
-
-      if (!response.ok) continue;
-
-      const data = await response.json();
-      const translated = String(
-        data.translatedText || ""
-      ).trim();
-
-      if (
-        translated &&
-        !/[\u3400-\u9FFF]/.test(translated)
-      ) {
-        return translated;
+        signal: AbortSignal.timeout(15000),
       }
-    } catch (error) {
-      console.error("[TRANSLATION ERROR]", error);
+    );
+
+    if (!response.ok) return original;
+
+    const data = await response.json();
+
+    const translated = String(
+      data.responseData?.translatedText || ""
+    ).trim();
+
+    if (
+      data.responseStatus === 200 &&
+      translated &&
+      !/[\u3400-\u9FFF]/.test(translated)
+    ) {
+      return translated;
     }
+  } catch (error) {
+    console.error("[TRANSLATION ERROR]", error);
   }
 
   return original;
