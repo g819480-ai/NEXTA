@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import type { Product } from "./store";
 
@@ -10,31 +10,34 @@ export function useProducts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function loadProducts() {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, name, price, category, description, badge, image_url")
-        .eq("active", true)
-        .order("created_at", { ascending: false });
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-      if (error) {
-        setError(error.message);
-      } else {
-        setProducts(
-          (data || []).map((item) => ({
-            ...item,
-            price: Number(item.price),
-            description: item.description || "",
-          })) as Product[]
-        );
-      }
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, name, price, category, description, badge, image_url")
+      .eq("active", true)
+      .order("created_at", { ascending: false });
 
-      setLoading(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      setProducts(
+        (data || []).map((item) => ({
+          ...item,
+          price: Number(item.price),
+          description: item.description || "",
+        })) as Product[]
+      );
     }
 
-    loadProducts();
+    setLoading(false);
   }, []);
 
-  return { products, loading, error };
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  return { products, loading, error, reload };
 }
