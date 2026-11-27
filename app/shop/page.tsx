@@ -10,13 +10,15 @@ import { useProducts } from "../../lib/useProducts";
 export default function ShopPage() {
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
-  const { products, loading, error } = useProducts();
+  const [searching, setSearching] = useState(false);
+  const [searchMessage, setSearchMessage] = useState("");
+  const { products, loading, error, reload } = useProducts();
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesCategory =
         category === "All" ||
-product.category?.toLowerCase().trim() === category.toLowerCase().trim();
+        product.category?.toLowerCase().trim() === category.toLowerCase().trim();
 
       const matchesSearch =
         product.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -25,6 +27,42 @@ product.category?.toLowerCase().trim() === category.toLowerCase().trim();
       return matchesCategory && matchesSearch;
     });
   }, [products, category, search]);
+
+  async function search1688(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const query = search.trim();
+
+    if (!query || searching) return;
+
+    setSearching(true);
+    setSearchMessage(`Searching 1688 for "${query}"...`);
+
+    try {
+      const response = await fetch(
+        `/api/1688/import?q=${encodeURIComponent(query)}&page=1`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "1688 search failed");
+      }
+
+      await reload();
+
+      setCategory("All");
+      setSearchMessage(
+        `1688 search completed. ${data.imported ?? data.count ?? 0} products imported.`
+      );
+    } catch (err) {
+      setSearchMessage(
+        err instanceof Error ? err.message : "Unable to search 1688."
+      );
+    } finally {
+      setSearching(false);
+    }
+  }
 
   return (
     <div className="page">
@@ -40,13 +78,17 @@ product.category?.toLowerCase().trim() === category.toLowerCase().trim();
         </Link>
       </section>
 
-      <div className="shop-controls">
+      <form className="shop-controls" onSubmit={search1688}>
         <input
           type="search"
-          placeholder="Search products..."
+          placeholder="Search anything on 1688..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+
+        <button type="submit" disabled={searching || !search.trim()}>
+          {searching ? "Searching..." : "Search 1688"}
+        </button>
 
         <select
           value={category}
@@ -59,7 +101,11 @@ product.category?.toLowerCase().trim() === category.toLowerCase().trim();
             </option>
           ))}
         </select>
-      </div>
+      </form>
+
+      {searchMessage && (
+        <p className="search-message">{searchMessage}</p>
+      )}
 
       <div className="category-pills">
         <button
