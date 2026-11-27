@@ -47,6 +47,10 @@ export default function ProductCard({
     src={product.image_url}
     alt={product.name}
     className="product-image-img"
+    loading="lazy"
+    onError={(e) => {
+      e.currentTarget.style.display = "none";
+    }}
   />
 ) : (
   <div className="product-placeholder">
