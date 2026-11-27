@@ -42,9 +42,17 @@ export default function ProductCard({
     <article className="product-card">
       <Link href={`/product/${product.id}`}>
         <div className="product-image">
-          <div className="product-placeholder">
-            {product.name}
-          </div>
+          {product.image_url ? (
+  <img
+    src={product.image_url}
+    alt={product.name}
+    className="product-image-img"
+  />
+) : (
+  <div className="product-placeholder">
+    {product.name}
+  </div>
+)}
 
           {product.badge && (
             <span className="product-badge">
