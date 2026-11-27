@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
         }
 
         const priceGhs = Number(
-          (priceCny * exchangeRate * 1.4).toFixed(2)
+          (priceCny * exchangeRate * 1.21).toFixed(2)
         );
 
         const image =
