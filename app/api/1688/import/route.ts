@@ -595,89 +595,124 @@ console.log("[TITLE CHECK]", {
 }
 
 
-async function importAllCategories(page: number) {
-  const results: any[] = [];
-  let totalImported = 0;
-  let totalKeywords = 0;
 
-  const MAX_PAGES_PER_KEYWORD = 5;
+ async function importAutomaticBatch() {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
-  for (const category of Object.keys(CATEGORY_SEARCHES)) {
+  const categories = Object.keys(CATEGORY_SEARCHES);
+  const now = new Date();
+  const ownerToken = `${Date.now()}-${Math.random()}`;
+
+  // Claim the importer lock so visitors cannot run duplicate batches.
+  const { data: progress, error: lockError } = await supabase
+    .from("1688_import_progress")
+    .update({
+      owner_token: ownerToken,
+      locked_until: new Date(Date.now() + 90000).toISOString(),
+      updated_at: now.toISOString(),
+    })
+    .eq("id", 1)
+    .lt("locked_until", now.toISOString())
+    .select()
+    .maybeSingle();
+
+  if (lockError) {
+    throw new Error(`Importer lock failed: ${lockError.message}`);
+  }
+
+  if (!progress) {
+    return {
+      success: true,
+      busy: true,
+      message: "Another import batch is running.",
+    };
+  }
+
+  try {
+    let categoryIndex = progress.category_index;
+    let keywordIndex = progress.keyword_index;
+    let page = progress.page;
+
+    if (categoryIndex >= categories.length) {
+      return {
+        success: true,
+        complete: true,
+        message: "All available category searches have been processed.",
+      };
+    }
+
+    const category = categories[categoryIndex];
     const searches = CATEGORY_SEARCHES[category];
-    let categoryImported = 0;
+    const query = searches[keywordIndex];
 
-    for (const query of searches) {
-      let currentPage = page;
+    const result = await importProducts(query, page, category);
 
-      for (
-        let count = 0;
-        count < MAX_PAGES_PER_KEYWORD;
-        count++
-      ) {
-        try {
-          const result = await importProducts(
-            query,
-            currentPage,
-            category
-          );
+    const nextPage = Number(result.next_page);
 
-          const imported = result.imported || 0;
+    if (
+      result.next_page &&
+      Number.isFinite(nextPage) &&
+      nextPage > page
+    ) {
+      page = nextPage;
+    } else {
+      page = 1;
+      keywordIndex++;
 
-          categoryImported += imported;
-          totalImported += imported;
-          totalKeywords++;
-
-          results.push({
-            category,
-            query,
-            page: currentPage,
-            imported,
-            success: result.success,
-          });
-
-          const nextPage = Number(result.next_page);
-
-          if (
-            !result.next_page ||
-            !Number.isFinite(nextPage) ||
-            nextPage <= currentPage ||
-            imported === 0
-          ) {
-            break;
-          }
-
-          currentPage = nextPage;
-        } catch (error: any) {
-          results.push({
-            category,
-            query,
-            page: currentPage,
-            success: false,
-            error: error?.message || "Import failed",
-          });
-
-          break;
-        }
+      if (keywordIndex >= searches.length) {
+        keywordIndex = 0;
+        categoryIndex++;
       }
     }
 
-    console.log(
-      `[1688 CATEGORY COMPLETE] ${category}: ${categoryImported}`
-    );
+    const { error: progressError } = await supabase
+      .from("1688_import_progress")
+      .update({
+        category_index: categoryIndex,
+        keyword_index: keywordIndex,
+        page,
+        updated_at: new Date().toISOString(),
+        locked_until: new Date(0).toISOString(),
+        owner_token: null,
+      })
+      .eq("id", 1)
+      .eq("owner_token", ownerToken);
+
+    if (progressError) {
+      throw new Error(`Progress save failed: ${progressError.message}`);
+    }
+
+    return {
+      success: true,
+      category,
+      query,
+      imported: result.imported || 0,
+      next_page: result.next_page ?? null,
+      complete: categoryIndex >= categories.length,
+      progress: {
+        category_index: categoryIndex,
+        keyword_index: keywordIndex,
+        page,
+      },
+    };
+  } catch (error) {
+    await supabase
+      .from("1688_import_progress")
+      .update({
+        locked_until: new Date(0).toISOString(),
+        owner_token: null,
+      })
+      .eq("id", 1)
+      .eq("owner_token", ownerToken);
+
+    throw error;
   }
+}         
 
-  return {
-    success: true,
-    mode: "automatic-batch-import",
-    categories: results,
-    total_imported: totalImported,
-    keywords_processed: totalKeywords,
-    page_limit_per_keyword: MAX_PAGES_PER_KEYWORD,
-    markup: "25%",
-  };
-}
-
-
+          
 export async function GET(
   request: NextRequest
 ) {
