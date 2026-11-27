@@ -15,7 +15,8 @@ export default function ShopPage() {
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesCategory =
-        category === "All" || product.category === category;
+        category === "All" ||
+product.category?.toLowerCase().trim() === category.toLowerCase().trim();
 
       const matchesSearch =
         product.name.toLowerCase().includes(search.toLowerCase()) ||
