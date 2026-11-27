@@ -594,84 +594,89 @@ console.log("[TITLE CHECK]", {
   };
 }
 
-async function importAllCategories(
-  page: number
-) {
+
+async function importAllCategories(page: number) {
   const results: any[] = [];
-
   let totalImported = 0;
+  let totalKeywords = 0;
 
-  for (
-    const category of Object.keys(
-      CATEGORY_SEARCHES
-    )
-  ) {
-    const searches =
-      CATEGORY_SEARCHES[
-        category
-      ];
+  const MAX_PAGES_PER_KEYWORD = 5;
 
-    const query =
-      searches[
-        (page - 1) %
-          searches.length
-      ];
+  for (const category of Object.keys(CATEGORY_SEARCHES)) {
+    const searches = CATEGORY_SEARCHES[category];
+    let categoryImported = 0;
 
-    try {
-      const result =
-        await importProducts(
-          query,
-          page,
-          category
-        );
+    for (const query of searches) {
+      let currentPage = page;
 
-      results.push(
-        result
-      );
+      for (
+        let count = 0;
+        count < MAX_PAGES_PER_KEYWORD;
+        count++
+      ) {
+        try {
+          const result = await importProducts(
+            query,
+            currentPage,
+            category
+          );
 
-      totalImported +=
-        result.imported ||
-        0;
-    } catch (error: any) {
-      results.push({
-        success:
-          false,
+          const imported = result.imported || 0;
 
-        category,
+          categoryImported += imported;
+          totalImported += imported;
+          totalKeywords++;
 
-        query,
+          results.push({
+            category,
+            query,
+            page: currentPage,
+            imported,
+            success: result.success,
+          });
 
-        error:
-          error?.message ||
-          "Category import failed",
-      });
+          const nextPage = Number(result.next_page);
+
+          if (
+            !result.next_page ||
+            !Number.isFinite(nextPage) ||
+            nextPage <= currentPage ||
+            imported === 0
+          ) {
+            break;
+          }
+
+          currentPage = nextPage;
+        } catch (error: any) {
+          results.push({
+            category,
+            query,
+            page: currentPage,
+            success: false,
+            error: error?.message || "Import failed",
+          });
+
+          break;
+        }
+      }
     }
+
+    console.log(
+      `[1688 CATEGORY COMPLETE] ${category}: ${categoryImported}`
+    );
   }
 
   return {
     success: true,
-
-    mode:
-      "all-categories",
-
-    categories:
-      results,
-
-    total_imported:
-      totalImported,
-
-    category_count:
-      Object.keys(
-        CATEGORY_SEARCHES
-      ).length,
-
-    markup:
-      "25%",
-
-    images:
-      "stored in Supabase Storage",
+    mode: "automatic-batch-import",
+    categories: results,
+    total_imported: totalImported,
+    keywords_processed: totalKeywords,
+    page_limit_per_keyword: MAX_PAGES_PER_KEYWORD,
+    markup: "25%",
   };
 }
+
 
 export async function GET(
   request: NextRequest
