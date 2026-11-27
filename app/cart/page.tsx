@@ -14,29 +14,48 @@ export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
 
   useEffect(() => {
-    const saved = JSON.parse(
-      localStorage.getItem("nesta-cart") || "[]"
-    );
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem("nesta-cart") || "[]"
+      );
 
-    setCart(saved);
+      if (Array.isArray(saved)) {
+        setCart(saved);
+      }
+    } catch {
+      setCart([]);
+    }
   }, []);
 
   const updateCart = (items: CartItem[]) => {
     setCart(items);
-    localStorage.setItem("nesta-cart", JSON.stringify(items));
+    localStorage.setItem(
+      "nesta-cart",
+      JSON.stringify(items)
+    );
   };
 
   const removeItem = (id: string) => {
-    updateCart(cart.filter((item) => item.id !== id));
+    updateCart(
+      cart.filter((item) => item.id !== id)
+    );
   };
 
-  const changeQuantity = (id: string, amount: number) => {
+  const changeQuantity = (
+    id: string,
+    amount: number
+  ) => {
     const updated = cart.map((item) => {
-      if (item.id !== id) return item;
+      if (item.id !== id) {
+        return item;
+      }
 
       return {
         ...item,
-        quantity: Math.max(1, item.quantity + amount),
+        quantity: Math.max(
+          1,
+          item.quantity + amount
+        ),
       };
     });
 
@@ -44,23 +63,40 @@ export default function CartPage() {
   };
 
   const subtotal = cart.reduce(
-    (total, item) => total + item.price * item.quantity,
+    (total, item) =>
+      total +
+      Number(item.price) *
+        Number(item.quantity),
     0
   );
 
+  const formatPrice = (value: number) => {
+    return `₵${value.toLocaleString()}`;
+  };
+
   return (
-    <div className="page">
+    <main className="page">
       <div className="page-title">
-        <span className="eyebrow">YOUR BAG</span>
+        <span className="eyebrow">
+          YOUR BAG
+        </span>
+
         <h1>Shopping Cart</h1>
       </div>
 
       {cart.length === 0 ? (
         <div className="empty-state">
           <h2>Your cart is empty</h2>
-          <p>Find something you love and add it to your cart.</p>
 
-          <Link href="/shop" className="btn btn-primary">
+          <p>
+            Find something you love and add it
+            to your cart.
+          </p>
+
+          <Link
+            href="/shop"
+            className="btn btn-primary"
+          >
             Start Shopping
           </Link>
         </div>
@@ -68,7 +104,10 @@ export default function CartPage() {
         <div className="cart-layout">
           <div className="cart-items">
             {cart.map((item) => (
-              <div className="cart-item" key={item.id}>
+              <div
+                className="cart-item"
+                key={item.id}
+              >
                 <div className="cart-product-image">
                   {item.name}
                 </div>
@@ -77,23 +116,35 @@ export default function CartPage() {
                   <h3>{item.name}</h3>
 
                   <p>
-                    ₵{item.price.toLocaleString()}
+                    {formatPrice(
+                      Number(item.price)
+                    )}
                   </p>
 
                   <div className="quantity-control">
                     <button
+                      type="button"
                       onClick={() =>
-                        changeQuantity(item.id, -1)
+                        changeQuantity(
+                          item.id,
+                          -1
+                        )
                       }
                     >
                       −
                     </button>
 
-                    <span>{item.quantity}</span>
+                    <span>
+                      {item.quantity}
+                    </span>
 
                     <button
+                      type="button"
                       onClick={() =>
-                        changeQuantity(item.id, 1)
+                        changeQuantity(
+                          item.id,
+                          1
+                        )
                       }
                     >
                       +
@@ -101,15 +152,21 @@ export default function CartPage() {
                   </div>
 
                   <button
+                    type="button"
                     className="remove-btn"
-                    onClick={() => removeItem(item.id)}
+                    onClick={() =>
+                      removeItem(item.id)
+                    }
                   >
                     Remove
                   </button>
                 </div>
 
                 <strong>
-                  ₵{(item.price * item.quantity).toLocaleString()}
+                  {formatPrice(
+                    Number(item.price) *
+                      Number(item.quantity)
+                  )}
                 </strong>
               </div>
             ))}
@@ -120,29 +177,44 @@ export default function CartPage() {
 
             <div className="summary-row">
               <span>Subtotal</span>
-              <strong>₵{subtotal.toLocaleString()}</strong>
+
+              <strong>
+                {formatPrice(subtotal)}
+              </strong>
             </div>
 
             <div className="summary-row">
               <span>Delivery</span>
-              <span>Calculated at checkout</span>
+
+              <span>
+                Calculated at checkout
+              </span>
             </div>
 
             <div className="summary-total">
               <span>Total</span>
-              <strong>₵{subtotal.toLocaleString()}</strong>
+
+              <strong>
+                {formatPrice(subtotal)}
+              </strong>
             </div>
 
-            <button className="btn btn-primary checkout-btn">
+            <Link
+              href="/checkout"
+              className="btn btn-primary checkout-btn"
+            >
               Checkout
-            </button>
+            </Link>
 
-            <Link href="/shop" className="continue-shopping">
+            <Link
+              href="/shop"
+              className="continue-shopping"
+            >
               Continue Shopping
             </Link>
           </aside>
         </div>
       )}
-    </div>
+    </main>
   );
 }
