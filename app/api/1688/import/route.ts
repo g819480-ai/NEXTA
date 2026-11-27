@@ -150,7 +150,42 @@ function getCategoryLabel(category: string): string {
 
   return CATEGORY_LABELS[key] || category;
 }
+function inferProductCategory(
+  title: string,
+  description: string,
+  fallbackCategory: string
+): string {
+  const text = `${title} ${description}`.toLowerCase();
 
+  const rules: [string, RegExp][] = [
+    ["Air Freshener", /\b(air freshener|room fragrance|scent diffuser|aroma diffuser|reed diffuser)\b/],
+    ["Rice Cooker", /\b(rice cooker|electric rice pot)\b/],
+    ["Fridge", /\b(refrigerator|fridge|freezer)\b/],
+    ["TV", /\b(television|smart tv|led tv|lcd tv|oled tv)\b/],
+    ["Mobile Phone", /\b(smartphone|mobile phone|cell phone|iphone|android phone)\b/],
+    ["Shoes", /\b(shoes|sneakers|trainers|sandals|boots|slippers|heels)\b/],
+    ["Bags", /\b(handbag|handbags|shoulder bag|backpack|backpacks|travel bag|tote bag|purse)\b/],
+    ["Watches", /\b(watch|watches|smartwatch|smart watch)\b/],
+    ["Jewelry", /\b(jewelry|jewellery|necklace|bracelet|earrings|ring|rings)\b/],
+    ["Beauty", /\b(cosmetics|makeup|skincare|lipstick|foundation|perfume|beauty products)\b/],
+    ["Kids", /\b(kids|children|baby|infant|toddler|toy|toys)\b/],
+    ["Sports", /\b(sportswear|fitness|gym|workout|football|basketball|yoga)\b/],
+    ["Clothing", /\b(clothing|dress|dresses|shirt|shirts|trousers|pants|jacket|hoodie|t-shirt|jeans|coat|skirt)\b/],
+    ["Accessories", /\b(cap|caps|wallet|wallets|sunglasses|belt|belts|fashion accessories)\b/],
+    ["Electronics", /\b(electronics|headphones|earphones|charger|chargers|speaker|speakers|earbuds|computer|keyboard|mouse)\b/],
+    ["Home", /\b(home decor|kitchen|household|home storage|table lamp|organizer|furniture|curtain|bedding|rice cooker)\b/],
+  ];
+
+  for (const [category, pattern] of rules) {
+    if (pattern.test(text)) {
+      return category;
+    }
+  }
+
+  const fallback = String(fallbackCategory || "").toLowerCase().trim();
+
+  return CATEGORY_LABELS[fallback] || "Home";
+}
 function fixMojibake(value: string): string {
   if (!/[ÃÂåæçèéêëìíîïðñòóôõöùúûüý]/.test(value)) {
     return value;
@@ -487,15 +522,22 @@ async function importProducts(
         }
       }
 
-      return {
-        name: englishTitle,
-        price: priceGhs,
-        category: productCategory,
+      const productDescription =
+  item.sales_text ||
+  `${englishTitle} imported from 1688.`;
 
-        description:
-          item.sales_text ||
-          `${englishTitle} imported from 1688.`,
+const actualCategory = inferProductCategory(
+  englishTitle,
+  productDescription,
+  productCategory
+);
 
+return {
+  name: englishTitle,
+  price: priceGhs,
+  category: actualCategory,
+
+  description: productDescription,
         badge: item.sponsored ? "Sponsored" : "1688",
 
         image_url: imageUrl,
