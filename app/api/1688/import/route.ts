@@ -747,9 +747,7 @@ export async function GET(
       category === "all"
     ) {
       const result =
-        await importAllCategories(
-          page
-        );
+        await importAutomaticBatch();
 
       return NextResponse.json(
         result
@@ -825,10 +823,7 @@ export async function POST(
       category === "all"
     ) {
       const result =
-        await importAllCategories(
-          page
-        );
-
+        await importAutomaticBatch();
       return NextResponse.json(
         result
       );
