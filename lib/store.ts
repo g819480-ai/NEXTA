@@ -8,18 +8,26 @@ export interface Product {
   image_url?: string;
 }
 
+
 export const categories = [
-  "Shoes",
   "Clothing",
+  "Shoes",
   "Bags",
   "Watches",
   "Jewelry",
   "Beauty",
+  "Accessories",
   "Electronics",
+  "Mobile Phone",
+  "TV",
+  "Fridge",
+  "Rice Cooker",
+  "Air Freshener",
   "Home",
   "Kids",
   "Sports",
 ];
+
 
 export const products: Product[] = [
   {
