@@ -5,6 +5,7 @@ export interface Product {
   category: string;
   description: string;
   badge?: string;
+  image_url?: string;
 }
 
 export const categories = [
