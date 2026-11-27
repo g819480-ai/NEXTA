@@ -1,209 +1,174 @@
 "use client";
-
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-
-type CartItem = {
+interface CartItem {
   id: string;
   name: string;
   price: number;
   quantity: number;
   image_url?: string;
-};
-
+  image?: string;
+}
 export default function CheckoutPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loaded, setLoaded] = useState(false);
-
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [region, setRegion] = useState("");
-
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-
+  const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     try {
-      const saved =
-        localStorage.getItem("nesta-cart");
-
+      const saved = localStorage.getItem("nesta-cart");
       if (saved) {
         const parsed = JSON.parse(saved);
-
         if (Array.isArray(parsed)) {
           setCart(parsed);
         }
       }
-    } catch {
+    } catch (error) {
+      console.error("Could not load cart:", error);
       setCart([]);
     }
-
     setLoaded(true);
   }, []);
-
   const subtotal = useMemo(() => {
-    return cart.reduce(
-      (total, item) =>
+    return cart.reduce((total, item) => {
+      return (
         total +
         Number(item.price || 0) *
-          Number(item.quantity || 1),
-      0
-    );
+          Number(item.quantity || 1)
+      );
+    }, 0);
   }, [cart]);
-
-  const deliveryFee = subtotal > 0 ? 0 : 0;
-
+  const deliveryFee = 0;
   const total = subtotal + deliveryFee;
-
   function formatPrice(value: number) {
-    return `GH₵${value.toFixed(2)}`;
+    return `₵${value.toLocaleString("en-GH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   }
-
-  function updateCartQuantity(
+  function updateQuantity(
     id: string,
-    quantity: number
+    amount: number
   ) {
     const updated = cart
-      .map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              quantity,
-            }
-          : item
-      )
-      .filter((item) => item.quantity > 0);
-
+      .map((item) => {
+        if (item.id !== id) {
+          return item;
+        }
+        return {
+          ...item,
+          quantity: Math.max(
+            1,
+            Number(item.quantity || 1) +
+              amount
+          ),
+        };
+      })
+      .filter(
+        (item) =>
+          Number(item.quantity) > 0
+      );
     setCart(updated);
     localStorage.setItem(
       "nesta-cart",
       JSON.stringify(updated)
     );
   }
-
   function removeItem(id: string) {
     const updated = cart.filter(
       (item) => item.id !== id
     );
-
     setCart(updated);
     localStorage.setItem(
       "nesta-cart",
       JSON.stringify(updated)
     );
   }
-
-  function submitOrder() {
+  function placeOrder() {
     setError("");
-
-    if (!cart.length) {
-      setError("Your cart is empty.");
-      return;
-    }
-
-    if (!name.trim()) {
-      setError("Please enter your full name.");
-      return;
-    }
-
-    if (!phone.trim()) {
-      setError("Please enter your phone number.");
-      return;
-    }
-
-    if (!address.trim()) {
-      setError("Please enter your delivery address.");
-      return;
-    }
-
-    if (!city.trim()) {
-      setError("Please enter your city.");
-      return;
-    }
-
-    if (!region.trim()) {
-      setError("Please enter your region.");
-      return;
-    }
-
-    setSubmitting(true);
-
-    const orderLines = cart
-      .map(
-        (item) =>
-          `${item.name} x${item.quantity} - ${formatPrice(
-            Number(item.price) *
-              Number(item.quantity)
-          )}`
-      )
-      .join("\n");
-
-    const message = [
-      "NESTA ORDER",
-      "",
-      `Name: ${name.trim()}`,
-      `Phone: ${phone.trim()}`,
-      `Address: ${address.trim()}`,
-      `City: ${city.trim()}`,
-      `Region: ${region.trim()}`,
-      "",
-      "ORDER ITEMS:",
-      orderLines,
-      "",
-      `Subtotal: ${formatPrice(subtotal)}`,
-      `Delivery: ${formatPrice(deliveryFee)}`,
-      `TOTAL: ${formatPrice(total)}`,
-    ].join("\n");
-
-    const whatsappNumber =
-      process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ||
-      "";
-
-    if (!whatsappNumber) {
+    if (cart.length === 0) {
       setError(
-        "WhatsApp checkout is not configured yet."
+        "There are no products in your cart."
       );
-      setSubmitting(false);
       return;
     }
-
-    const cleanNumber =
-      whatsappNumber.replace(/\D/g, "");
-
-    const whatsappUrl =
-      `https://wa.me/${cleanNumber}?text=${encodeURIComponent(
-        message
-      )}`;
-
-    localStorage.removeItem("nesta-cart");
-    setCart([]);
-
-    window.location.href = whatsappUrl;
+    if (!name.trim()) {
+      setError(
+        "Please enter the receiver's full name."
+      );
+      return;
+    }
+    if (!phone.trim()) {
+      setError(
+        "Please enter the receiver's phone number."
+      );
+      return;
+    }
+    if (!address.trim()) {
+      setError(
+        "Please enter the delivery address."
+      );
+      return;
+    }
+    if (!city.trim()) {
+      setError(
+        "Please enter the city."
+      );
+      return;
+    }
+    if (!region.trim()) {
+      setError(
+        "Please enter the region."
+      );
+      return;
+    }
+    setSubmitting(true);
+    const order = {
+      id: `NESTA-${Date.now()}`,
+      receiverName: name.trim(),
+      receiverPhone: phone.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      region: region.trim(),
+      items: cart,
+      subtotal,
+      delivery: deliveryFee,
+      total,
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem(
+      "nesta-order",
+      JSON.stringify(order)
+    );
+    localStorage.removeItem(
+      "nesta-cart"
+    );
+    window.location.href =
+      "/order-success";
   }
-
   if (!loaded) {
     return (
       <main className="checkout-page">
-        <div className="checkout-loading">
+        <div className="loading">
           Loading checkout...
         </div>
       </main>
     );
   }
-
-  if (!cart.length) {
+  if (cart.length === 0) {
     return (
       <main className="checkout-page">
-        <div className="checkout-empty">
+        <div className="empty">
           <h1>Your cart is empty</h1>
-
           <p>
-            Add some products before going to
-            checkout.
+            No products were found in your
+            cart.
           </p>
-
           <Link href="/shop">
             Continue Shopping
           </Link>
@@ -211,329 +176,323 @@ export default function CheckoutPage() {
       </main>
     );
   }
-
   return (
     <main className="checkout-page">
-      <div className="checkout-container">
-        <div className="checkout-header">
-          <Link href="/shop">
-            ← Continue Shopping
+      <div className="container">
+        <div className="header">
+          <Link href="/cart">
+            ← Back to Cart
           </Link>
-
           <h1>Checkout</h1>
-
           <p>
-            Complete your details to place your
-            NESTA order.
+            Enter the receiver's details
+            for delivery.
           </p>
         </div>
-
         <div className="checkout-grid">
-          <section className="checkout-form">
-            <div className="checkout-card">
-              <h2>Customer Details</h2>
-
+          <section>
+            <div className="card">
+              <h2>
+                Receiver Details
+              </h2>
               <label>
                 Full Name
                 <input
                   type="text"
                   value={name}
                   onChange={(e) =>
-                    setName(e.target.value)
+                    setName(
+                      e.target.value
+                    )
                   }
-                  placeholder="Enter your full name"
+                  placeholder="Receiver's full name"
                 />
               </label>
-
               <label>
                 Phone Number
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) =>
-                    setPhone(e.target.value)
+                    setPhone(
+                      e.target.value
+                    )
                   }
                   placeholder="024 000 0000"
                 />
               </label>
             </div>
-
-            <div className="checkout-card">
-              <h2>Delivery Address</h2>
-
+            <div className="card">
+              <h2>
+                Delivery Address
+              </h2>
               <label>
                 Address
                 <textarea
                   value={address}
                   onChange={(e) =>
-                    setAddress(e.target.value)
+                    setAddress(
+                      e.target.value
+                    )
                   }
                   placeholder="House number, street, area..."
                   rows={4}
                 />
               </label>
-
-              <div className="checkout-row">
+              <div className="row">
                 <label>
                   City
                   <input
                     type="text"
                     value={city}
                     onChange={(e) =>
-                      setCity(e.target.value)
+                      setCity(
+                        e.target.value
+                      )
                     }
                     placeholder="Accra"
                   />
                 </label>
-
                 <label>
                   Region
                   <input
                     type="text"
                     value={region}
                     onChange={(e) =>
-                      setRegion(e.target.value)
+                      setRegion(
+                        e.target.value
+                      )
                     }
                     placeholder="Greater Accra"
                   />
                 </label>
               </div>
             </div>
-
             {error && (
-              <div className="checkout-error">
+              <div className="error">
                 {error}
               </div>
             )}
-
             <button
               type="button"
               className="place-order"
-              onClick={submitOrder}
+              onClick={placeOrder}
               disabled={submitting}
             >
               {submitting
-                ? "Opening WhatsApp..."
+                ? "Processing..."
                 : "Place Order"}
             </button>
           </section>
-
-          <aside className="checkout-summary">
-            <div className="checkout-card">
-              <h2>Order Summary</h2>
-
-              <div className="checkout-items">
-                {cart.map((item) => (
-                  <div
-                    className="checkout-item"
-                    key={item.id}
-                  >
-                    {item.image_url ? (
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                      />
-                    ) : (
-                      <div className="checkout-image-placeholder">
-                        NESTA
-                      </div>
-                    )}
-
-                    <div className="checkout-item-info">
-                      <h3>{item.name}</h3>
-
-                      <p>
-                        {formatPrice(
-                          Number(item.price)
-                        )}
-                      </p>
-
-                      <div className="quantity-control">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateCartQuantity(
-                              item.id,
-                              Math.max(
-                                1,
-                                Number(
-                                  item.quantity
-                                ) - 1
+          <aside>
+            <div className="card summary">
+              <h2>
+                Order Summary
+              </h2>
+              <div className="products">
+                {cart.map((item) => {
+                  const image =
+                    item.image_url ||
+                    item.image;
+                  return (
+                    <div
+                      className="product"
+                      key={item.id}
+                    >
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={item.name}
+                        />
+                      ) : (
+                        <div className="image-placeholder">
+                          NESTA
+                        </div>
+                      )}
+                      <div className="product-info">
+                        <h3>
+                          {item.name}
+                        </h3>
+                        <p>
+                          {formatPrice(
+                            Number(
+                              item.price
+                            )
+                          )}
+                        </p>
+                        <div className="quantity">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateQuantity(
+                                item.id,
+                                -1
                               )
-                            )
-                          }
-                        >
-                          −
-                        </button>
-
-                        <span>
-                          {item.quantity}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateCartQuantity(
-                              item.id,
-                              Number(
-                                item.quantity
-                              ) + 1
-                            )
-                          }
-                        >
-                          +
-                        </button>
-
-                        <button
-                          type="button"
-                          className="remove-item"
-                          onClick={() =>
-                            removeItem(item.id)
-                          }
-                        >
-                          Remove
-                        </button>
+                            }
+                          >
+                            −
+                          </button>
+                          <span>
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateQuantity(
+                                item.id,
+                                1
+                              )
+                            }
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            className="remove"
+                            onClick={() =>
+                              removeItem(
+                                item.id
+                              )
+                            }
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
-                    </div>
-
-                    <strong>
-                      {formatPrice(
-                        Number(item.price) *
+                      <strong>
+                        {formatPrice(
                           Number(
-                            item.quantity
-                          )
-                      )}
-                    </strong>
-                  </div>
-                ))}
+                            item.price
+                          ) *
+                            Number(
+                              item.quantity
+                            )
+                        )}
+                      </strong>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div className="summary-line">
-                <span>Subtotal</span>
+              <div className="line">
+                <span>
+                  Subtotal
+                </span>
                 <strong>
-                  {formatPrice(subtotal)}
+                  {formatPrice(
+                    subtotal
+                  )}
                 </strong>
               </div>
-
-              <div className="summary-line">
-                <span>Delivery</span>
+              <div className="line">
+                <span>
+                  Delivery
+                </span>
                 <strong>
-                  {deliveryFee === 0
-                    ? "Free"
-                    : formatPrice(
-                        deliveryFee
-                      )}
+                  Free
                 </strong>
               </div>
-
-              <div className="summary-total">
-                <span>Total</span>
+              <div className="total">
+                <span>
+                  Total
+                </span>
                 <strong>
-                  {formatPrice(total)}
+                  {formatPrice(
+                    total
+                  )}
                 </strong>
               </div>
             </div>
           </aside>
         </div>
       </div>
-
       <style jsx>{`
         .checkout-page {
           min-height: 100vh;
           background: #f7f7f5;
-          padding: 40px 20px 80px;
           color: #111;
+          padding: 40px 20px 80px;
         }
-
-        .checkout-container {
+        .container {
           width: 100%;
           max-width: 1180px;
           margin: 0 auto;
         }
-
-        .checkout-header {
-          margin-bottom: 35px;
+        .header {
+          margin-bottom: 32px;
         }
-
-        .checkout-header a {
+        .header a {
           color: #111;
           text-decoration: none;
           font-size: 14px;
           font-weight: 600;
         }
-
-        .checkout-header h1 {
-          margin: 22px 0 8px;
-          font-size: clamp(36px, 7vw, 64px);
-          letter-spacing: -3px;
+        .header h1 {
+          margin: 20px 0 8px;
+          font-size: clamp(
+            38px,
+            7vw,
+            64px
+          );
           line-height: 1;
+          letter-spacing: -3px;
         }
-
-        .checkout-header p {
+        .header p {
           color: #666;
           margin: 0;
         }
-
         .checkout-grid {
           display: grid;
-          grid-template-columns: minmax(0, 1.4fr) minmax(
-              320px,
-              0.8fr
-            );
-          gap: 25px;
+          grid-template-columns:
+            minmax(0, 1.4fr)
+            minmax(320px, 0.8fr);
+          gap: 24px;
           align-items: start;
         }
-
-        .checkout-card {
+        .card {
           background: #fff;
           border: 1px solid #e8e8e8;
           border-radius: 18px;
           padding: 24px;
           margin-bottom: 20px;
         }
-
-        .checkout-card h2 {
+        .card h2 {
           margin: 0 0 22px;
-          font-size: 21px;
+          font-size: 20px;
         }
-
         label {
           display: block;
           font-size: 13px;
           font-weight: 700;
           margin-bottom: 18px;
         }
-
         input,
         textarea {
           display: block;
           width: 100%;
           box-sizing: border-box;
           margin-top: 8px;
+          padding: 14px;
           border: 1px solid #ddd;
           border-radius: 10px;
-          padding: 14px;
+          background: #fff;
+          color: #111;
           font: inherit;
           outline: none;
-          background: #fff;
         }
-
         input:focus,
         textarea:focus {
           border-color: #111;
         }
-
         textarea {
           resize: vertical;
         }
-
-        .checkout-row {
+        .row {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns:
+            1fr 1fr;
           gap: 15px;
         }
-
-        .checkout-error {
+        .error {
           background: #fff0f0;
           border: 1px solid #ffd0d0;
           color: #b00020;
@@ -542,109 +501,94 @@ export default function CheckoutPage() {
           margin-bottom: 15px;
           font-size: 14px;
         }
-
         .place-order {
           width: 100%;
           border: 0;
           border-radius: 12px;
-          padding: 16px 20px;
+          padding: 17px 20px;
           background: #111;
           color: #fff;
           font-size: 15px;
           font-weight: 800;
           cursor: pointer;
         }
-
         .place-order:disabled {
           opacity: 0.6;
           cursor: not-allowed;
         }
-
-        .checkout-item {
+        .product {
           display: grid;
-          grid-template-columns: 65px 1fr auto;
+          grid-template-columns:
+            65px 1fr auto;
           gap: 12px;
           align-items: center;
           padding: 15px 0;
           border-bottom: 1px solid #eee;
         }
-
-        .checkout-item img,
-        .checkout-image-placeholder {
+        .product img,
+        .image-placeholder {
           width: 65px;
           height: 65px;
           border-radius: 10px;
           object-fit: cover;
           background: #f1f1f1;
         }
-
-        .checkout-image-placeholder {
+        .image-placeholder {
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 10px;
           font-weight: 900;
         }
-
-        .checkout-item-info h3 {
+        .product-info h3 {
           margin: 0 0 5px;
           font-size: 14px;
         }
-
-        .checkout-item-info p {
+        .product-info p {
           margin: 0 0 8px;
-          font-size: 13px;
           color: #666;
-        }
-
-        .checkout-item > strong {
           font-size: 13px;
-          white-space: nowrap;
         }
-
-        .quantity-control {
+        .product > strong {
+          white-space: nowrap;
+          font-size: 13px;
+        }
+        .quantity {
           display: flex;
           align-items: center;
           gap: 8px;
         }
-
-        .quantity-control button {
-          border: 1px solid #ddd;
-          background: #fff;
-          border-radius: 7px;
+        .quantity button {
           min-width: 27px;
           height: 27px;
+          border: 1px solid #ddd;
+          border-radius: 7px;
+          background: #fff;
           cursor: pointer;
         }
-
-        .quantity-control span {
+        .quantity span {
           min-width: 15px;
           text-align: center;
           font-size: 13px;
         }
-
-        .quantity-control .remove-item {
+        .quantity .remove {
           border: 0;
-          margin-left: 4px;
           color: #b00020;
-          font-size: 11px;
-          width: auto;
           background: transparent;
+          font-size: 11px;
+          margin-left: 4px;
         }
-
-        .summary-line {
+        .line {
           display: flex;
           justify-content: space-between;
           padding-top: 18px;
           font-size: 14px;
           color: #666;
         }
-
-        .summary-line strong {
+        .line strong {
           color: #111;
         }
-
-        .summary-total {
+        .total {
           display: flex;
           justify-content: space-between;
           margin-top: 20px;
@@ -652,50 +596,42 @@ export default function CheckoutPage() {
           border-top: 1px solid #ddd;
           font-size: 20px;
         }
-
-        .checkout-empty,
-        .checkout-loading {
+        .empty,
+        .loading {
           max-width: 600px;
           margin: 100px auto;
-          text-align: center;
-          background: #fff;
           padding: 45px 25px;
+          background: #fff;
           border-radius: 18px;
+          text-align: center;
         }
-
-        .checkout-empty h1 {
+        .empty h1 {
           margin-top: 0;
         }
-
-        .checkout-empty p {
+        .empty p {
           color: #666;
         }
-
-        .checkout-empty a {
+        .empty a {
           display: inline-block;
           margin-top: 15px;
+          padding: 13px 20px;
           background: #111;
           color: #fff;
-          text-decoration: none;
-          padding: 13px 20px;
           border-radius: 10px;
+          text-decoration: none;
         }
-
         @media (max-width: 800px) {
           .checkout-page {
             padding: 25px 15px 60px;
           }
-
           .checkout-grid {
             grid-template-columns: 1fr;
           }
-
-          .checkout-row {
+          .row {
             grid-template-columns: 1fr;
             gap: 0;
           }
-
-          .checkout-header h1 {
+          .header h1 {
             font-size: 44px;
           }
         }
