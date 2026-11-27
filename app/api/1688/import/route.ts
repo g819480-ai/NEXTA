@@ -481,10 +481,7 @@ const englishTitle =
         }
 
         return {
-          name:
-            item.title ||
-            `1688 Product ${item.offer_id}`,
-
+          name: englishTitle,
           price:
             priceGhs,
 
