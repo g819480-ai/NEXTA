@@ -119,6 +119,59 @@ function cleanValue(value: any): any {
   return value;
 }
 
+async function translateProductNameToEnglish(
+  title: string
+): Promise<string> {
+  const original = String(title || "").trim();
+
+  if (!/[\u3400-\u9FFF]/.test(original)) {
+    return original;
+  }
+
+  const endpoints = [
+    "https://translate.argosopentech.com/translate",
+    "https://libretranslate.de/translate",
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          q: original,
+          source: "zh",
+          target: "en",
+          format: "text",
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(12000),
+      });
+
+      if (!response.ok) continue;
+
+      const data = await response.json();
+      const translated = String(
+        data.translatedText || ""
+      ).trim();
+
+      if (
+        translated &&
+        !/[\u3400-\u9FFF]/.test(translated)
+      ) {
+        return translated;
+      }
+    } catch (error) {
+      console.error("[TRANSLATION ERROR]", error);
+    }
+  }
+
+  return original;
+}
+
 async function saveImageToSupabase(
   supabase: any,
   imageUrl: string,
